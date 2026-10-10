@@ -1,0 +1,1910 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Black Hole Creator — Coming Soon</title>
+<meta name="description" content="Real N-body physics sandbox with atomic simulation, gravity, fusion, and antimatter. Coming soon.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   RESET + VARIABLES
+   ============================================================ */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --void: #04050c;
+  --deep: #080a16;
+  --surface: #0c0e1c;
+  --surface-2: #111426;
+  --surface-3: #181c32;
+  --hairline: #3e466c;
+  --hairline-soft: #262b46;
+
+  --cyan: #60d6ff;
+  --cyan-deep: #207abe;
+  --cyan-soft: #b4eeff;
+  --violet: #a882ff;
+  --violet-deep: #6042be;
+  --magenta: #ff6cc4;
+  --gold: #ffce5c;
+  --mint: #70f0a8;
+  --coral: #ff7474;
+  --amber: #ffb048;
+
+  --text: #ecf0fc;
+  --text-dim: #a8b2cc;
+  --text-faint: #767f9c;
+
+  --font-display: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Consolas', 'SF Mono', monospace;
+}
+
+html {
+  scroll-behavior: smooth;
+  background: var(--void);
+}
+
+body {
+  font-family: var(--font-display);
+  background: var(--void);
+  color: var(--text);
+  overflow-x: hidden;
+  min-height: 100vh;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ============================================================
+   SCROLL PROGRESS BAR
+   ============================================================ */
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 2px;
+  width: 0%;
+  background: linear-gradient(90deg, var(--cyan), var(--violet), var(--magenta));
+  z-index: 300;
+  box-shadow: 0 0 20px var(--cyan);
+  transition: width 0.05s linear;
+}
+
+/* ============================================================
+   CUSTOM CURSOR
+   ============================================================ */
+.cursor {
+  position: fixed;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--cyan);
+  pointer-events: none;
+  z-index: 9999;
+  mix-blend-mode: screen;
+  box-shadow:
+    0 0 20px var(--cyan),
+    0 0 40px rgba(96, 214, 255, 0.6),
+    0 0 80px rgba(96, 214, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.2s, height 0.2s;
+}
+
+.cursor-ring {
+  position: fixed;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid rgba(96, 214, 255, 0.5);
+  pointer-events: none;
+  z-index: 9998;
+  transform: translate(-50%, -50%);
+  transition: width 0.3s, height 0.3s, border-color 0.3s;
+}
+
+body.hovering .cursor { width: 20px; height: 20px; }
+body.hovering .cursor-ring {
+  width: 60px;
+  height: 60px;
+  border-color: rgba(168, 130, 255, 0.8);
+}
+
+@media (hover: none) {
+  .cursor, .cursor-ring { display: none; }
+}
+
+/* ============================================================
+   BACKGROUND
+   ============================================================ */
+#stars-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.gradient-wash {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(32, 122, 190, 0.15), transparent 60%),
+    radial-gradient(ellipse 70% 50% at 80% 90%, rgba(96, 66, 190, 0.15), transparent 60%);
+}
+
+/* ============================================================
+   NAVIGATION
+   ============================================================ */
+nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 200;
+  padding: 20px 48px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  backdrop-filter: blur(20px);
+  background: rgba(4, 5, 12, 0.6);
+  border-bottom: 1px solid rgba(96, 214, 255, 0.08);
+  transition: padding 0.3s;
+}
+
+nav.scrolled { padding: 14px 48px; }
+
+.nav-brand {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 3px;
+  color: var(--cyan);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nav-brand-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 12px var(--cyan);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+.nav-links {
+  display: flex;
+  gap: 32px;
+  list-style: none;
+}
+
+.nav-links a {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--text-faint);
+  text-decoration: none;
+  transition: color 0.2s;
+  position: relative;
+}
+
+.nav-links a:hover { color: var(--cyan); }
+
+.nav-links a::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: var(--cyan);
+  transition: width 0.3s;
+}
+
+.nav-links a:hover::after { width: 100%; }
+
+@media (max-width: 800px) {
+  nav { padding: 16px 24px; }
+  .nav-links { display: none; }
+}
+
+/* ============================================================
+   MAIN
+   ============================================================ */
+main {
+  position: relative;
+  z-index: 10;
+}
+
+.section {
+  padding: 140px 48px;
+  max-width: 1280px;
+  margin: 0 auto;
+  position: relative;
+}
+
+/* ============================================================
+   SCROLL REVEAL
+   ============================================================ */
+.reveal {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 0.9s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.9s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ============================================================
+   HERO
+   ============================================================ */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 160px 48px 100px;
+  position: relative;
+}
+
+#blackhole-canvas {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: -1;
+  pointer-events: none;
+}
+
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 176, 72, 0.4);
+  background: rgba(255, 176, 72, 0.08);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--amber);
+  margin-bottom: 32px;
+  backdrop-filter: blur(10px);
+}
+
+.hero-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--amber);
+  box-shadow: 0 0 10px var(--amber);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+.hero h1 {
+  font-size: clamp(48px, 9vw, 128px);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 0.95;
+  margin-bottom: 32px;
+  background: linear-gradient(180deg, #ffffff 0%, #b4eeff 40%, #60d6ff 70%, #a882ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 40px rgba(96, 214, 255, 0.35));
+}
+
+.glitch {
+  position: relative;
+  display: inline-block;
+}
+
+.glitch::before,
+.glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.glitch:hover::before {
+  opacity: 1;
+  color: var(--cyan);
+  transform: translate(-3px, -2px);
+  filter: drop-shadow(0 0 6px var(--cyan));
+}
+
+.glitch:hover::after {
+  opacity: 1;
+  color: var(--magenta);
+  transform: translate(3px, 2px);
+  filter: drop-shadow(0 0 6px var(--magenta));
+}
+
+.hero-subtitle {
+  font-size: clamp(16px, 2vw, 22px);
+  color: var(--text-dim);
+  max-width: 640px;
+  margin: 0 auto 60px;
+  line-height: 1.5;
+  font-weight: 300;
+}
+
+.hero-subtitle strong {
+  color: var(--cyan);
+  font-weight: 600;
+}
+
+.hero-stats {
+  display: flex;
+  gap: 60px;
+  margin-bottom: 60px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.stat {
+  text-align: left;
+}
+
+.stat-value {
+  font-family: var(--font-mono);
+  font-size: clamp(32px, 4vw, 48px);
+  font-weight: 700;
+  color: var(--cyan);
+  line-height: 1;
+  margin-bottom: 8px;
+  text-shadow: 0 0 30px rgba(96, 214, 255, 0.5);
+}
+
+.stat-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.hero-note {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-faint);
+  margin-top: 32px;
+  letter-spacing: 1px;
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 22px 52px;
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 1.5px;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
+}
+
+.btn-primary {
+  color: var(--void);
+  background: linear-gradient(135deg, var(--cyan) 0%, var(--violet) 100%);
+  box-shadow:
+    0 0 0 1px rgba(96, 214, 255, 0.4),
+    0 20px 60px rgba(96, 214, 255, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  transition: left 0.6s;
+}
+
+.btn-primary:hover::before { left: 100%; }
+
+.btn-primary:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow:
+    0 0 0 1px rgba(96, 214, 255, 0.6),
+    0 30px 80px rgba(96, 214, 255, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.btn-ghost {
+  color: var(--text);
+  background: rgba(17, 20, 38, 0.6);
+  border: 1px solid rgba(96, 214, 255, 0.25);
+  backdrop-filter: blur(10px);
+}
+
+.btn-ghost:hover {
+  transform: translateY(-2px);
+  border-color: rgba(96, 214, 255, 0.6);
+  background: rgba(96, 214, 255, 0.08);
+}
+
+/* ============================================================
+   SECTION HEADERS
+   ============================================================ */
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 4px;
+  color: var(--cyan);
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.section-label::before {
+  content: '';
+  width: 40px;
+  height: 1px;
+  background: var(--cyan);
+}
+
+.section-title {
+  font-size: clamp(36px, 5vw, 72px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  margin-bottom: 24px;
+  max-width: 900px;
+}
+
+.section-title .accent {
+  background: linear-gradient(135deg, var(--cyan), var(--violet));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.section-desc {
+  font-size: 18px;
+  color: var(--text-dim);
+  max-width: 640px;
+  line-height: 1.7;
+  font-weight: 300;
+}
+
+/* ============================================================
+   FEATURES
+   ============================================================ */
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 24px;
+  margin-top: 80px;
+}
+
+.feature-card {
+  position: relative;
+  padding: 40px 36px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(24, 28, 50, 0.7), rgba(8, 10, 22, 0.9));
+  border: 1px solid rgba(96, 214, 255, 0.12);
+  overflow: hidden;
+  transition: border-color 0.3s, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(20px);
+  transform-style: preserve-3d;
+}
+
+.feature-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%),
+              rgba(96, 214, 255, 0.15), transparent 40%);
+  opacity: 0;
+  transition: opacity 0.4s;
+  pointer-events: none;
+}
+
+.feature-card:hover::before { opacity: 1; }
+.feature-card:hover { border-color: rgba(96, 214, 255, 0.4); }
+
+.feature-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+  background: linear-gradient(135deg, rgba(96, 214, 255, 0.15), rgba(168, 130, 255, 0.15));
+  border: 1px solid rgba(96, 214, 255, 0.25);
+  font-size: 26px;
+}
+
+.feature-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+
+.feature-desc {
+  font-size: 15px;
+  color: var(--text-dim);
+  line-height: 1.7;
+  font-weight: 300;
+}
+
+.feature-tag {
+  display: inline-block;
+  margin-top: 20px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: var(--cyan);
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: rgba(96, 214, 255, 0.08);
+  border: 1px solid rgba(96, 214, 255, 0.2);
+}
+
+/* ============================================================
+   LIVE PREVIEW
+   ============================================================ */
+.preview-wrap {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  align-items: center;
+  margin-top: 80px;
+}
+
+@media (max-width: 900px) {
+  .preview-wrap { grid-template-columns: 1fr; gap: 40px; }
+}
+
+.preview-canvas-wrap {
+  position: relative;
+  border-radius: 24px;
+  overflow: hidden;
+  aspect-ratio: 1;
+  background: radial-gradient(circle, rgba(8, 10, 22, 0.9), rgba(4, 5, 12, 1));
+  border: 1px solid rgba(96, 214, 255, 0.2);
+  box-shadow:
+    0 0 80px rgba(96, 214, 255, 0.15),
+    inset 0 0 80px rgba(96, 214, 255, 0.05);
+}
+
+#atoms-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.preview-list {
+  list-style: none;
+}
+
+.preview-list li {
+  padding: 20px 0;
+  border-bottom: 1px solid rgba(96, 214, 255, 0.08);
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.preview-list li:last-child { border-bottom: none; }
+
+.preview-list-icon {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--cyan);
+  background: rgba(96, 214, 255, 0.08);
+  border: 1px solid rgba(96, 214, 255, 0.2);
+}
+
+.preview-list-title {
+  font-size: 17px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.preview-list-desc {
+  font-size: 14px;
+  color: var(--text-dim);
+  font-weight: 300;
+}
+
+/* ============================================================
+   PERIODIC TABLE
+   ============================================================ */
+.periodic-mini {
+  display: grid;
+  grid-template-columns: repeat(18, 1fr);
+  gap: 3px;
+  margin-top: 80px;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 40px 0;
+}
+
+.pt-cell {
+  aspect-ratio: 1;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(4, 5, 12, 0.9);
+  cursor: pointer;
+  transition: transform 0.2s, filter 0.2s;
+  position: relative;
+}
+
+.pt-cell:hover {
+  transform: scale(1.4);
+  z-index: 10;
+  filter: brightness(1.4);
+  box-shadow: 0 0 30px currentColor;
+}
+
+.pt-cell.empty {
+  background: transparent;
+  pointer-events: none;
+}
+
+.pt-alkali     { background: #ff7878; }
+.pt-alkaline   { background: #ffb464; }
+.pt-transition { background: #c0c0c8; }
+.pt-post       { background: #a0b4c8; }
+.pt-metalloid  { background: #78c8c8; }
+.pt-nonmetal   { background: #78dc78; }
+.pt-halogen    { background: #dce65a; }
+.pt-noble      { background: #b48cff; }
+.pt-lanthanide { background: #ff96c8; }
+.pt-actinide   { background: #c864dc; }
+
+.pt-labels {
+  display: flex;
+  gap: 32px;
+  flex-wrap: wrap;
+  margin-top: 40px;
+  justify-content: center;
+}
+
+.pt-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: var(--text-faint);
+}
+
+.pt-label-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+/* ============================================================
+   PRICING / ERAS
+   ============================================================ */
+#pricing {
+  padding: 140px 48px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.era-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+  margin-top: 80px;
+}
+
+.era-card {
+  position: relative;
+  padding: 40px 32px 32px;
+  border-radius: 22px;
+  background: linear-gradient(180deg,
+    rgba(24, 28, 50, 0.55),
+    rgba(8, 10, 22, 0.85));
+  border: 1px solid rgba(96, 214, 255, 0.12);
+  display: flex;
+  flex-direction: column;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+.era-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+
+.era-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(96, 214, 255, 0.35);
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.5),
+    0 0 60px rgba(96, 214, 255, 0.12);
+}
+
+.era-card:hover::before { opacity: 1; }
+
+.era-card.free {
+  background: linear-gradient(180deg,
+    rgba(17, 30, 24, 0.55),
+    rgba(6, 14, 10, 0.85));
+  border-color: rgba(112, 240, 168, 0.18);
+}
+
+.era-card.free::before {
+  background: linear-gradient(90deg, transparent, var(--mint), transparent);
+}
+
+.era-card.free:hover {
+  border-color: rgba(112, 240, 168, 0.5);
+  box-shadow:
+    0 30px 80px rgba(0, 0, 0, 0.5),
+    0 0 60px rgba(112, 240, 168, 0.15);
+}
+
+.era-card.popular {
+  background: linear-gradient(180deg,
+    rgba(40, 30, 60, 0.75),
+    rgba(20, 12, 40, 0.95));
+  border-color: rgba(168, 130, 255, 0.55);
+  box-shadow:
+    0 0 0 1px rgba(168, 130, 255, 0.15),
+    0 20px 60px rgba(168, 130, 255, 0.25);
+  transform: scale(1.02);
+}
+
+.era-card.popular::before {
+  background: linear-gradient(90deg, transparent, var(--violet), transparent);
+  opacity: 1;
+}
+
+.era-card.popular:hover {
+  transform: scale(1.02) translateY(-6px);
+  box-shadow:
+    0 0 0 1px rgba(168, 130, 255, 0.3),
+    0 30px 100px rgba(168, 130, 255, 0.4),
+    0 0 80px rgba(168, 130, 255, 0.2);
+}
+
+.era-badge {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(112, 240, 168, 0.12);
+  color: var(--mint);
+  border: 1px solid rgba(112, 240, 168, 0.35);
+}
+
+.era-badge.popular {
+  background: linear-gradient(135deg, var(--violet), var(--magenta));
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 0 20px rgba(168, 130, 255, 0.6);
+  letter-spacing: 1.5px;
+}
+
+.era-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--text-faint);
+  margin-bottom: 12px;
+}
+
+.era-title {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 20px;
+  color: var(--text);
+  line-height: 1.15;
+}
+
+.era-price {
+  font-family: var(--font-mono);
+  font-size: 48px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  margin-bottom: 28px;
+  color: var(--cyan);
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.era-card.free .era-price { color: var(--mint); }
+.era-card.popular .era-price { color: var(--violet); }
+
+.era-card.free .era-price::after {
+  content: 'FREE';
+  font-size: 32px;
+  letter-spacing: 4px;
+}
+
+.era-card.free .era-price {
+  font-size: 0;
+}
+
+.era-features {
+  list-style: none;
+  margin-bottom: 32px;
+  flex: 1;
+}
+
+.era-features li {
+  padding: 10px 0;
+  padding-left: 26px;
+  position: relative;
+  font-size: 14px;
+  color: var(--text-dim);
+  line-height: 1.5;
+  border-bottom: 1px solid rgba(96, 214, 255, 0.05);
+}
+
+.era-features li:last-child { border-bottom: none; }
+
+.era-features li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 17px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: rgba(96, 214, 255, 0.1);
+  border: 1px solid rgba(96, 214, 255, 0.4);
+}
+
+.era-features li::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 21px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 8px var(--cyan);
+}
+
+.era-card.free .era-features li::before {
+  background: rgba(112, 240, 168, 0.1);
+  border-color: rgba(112, 240, 168, 0.4);
+}
+.era-card.free .era-features li::after {
+  background: var(--mint);
+  box-shadow: 0 0 8px var(--mint);
+}
+
+.era-card.popular .era-features li::before {
+  background: rgba(168, 130, 255, 0.1);
+  border-color: rgba(168, 130, 255, 0.4);
+}
+.era-card.popular .era-features li::after {
+  background: var(--violet);
+  box-shadow: 0 0 8px var(--violet);
+}
+
+.era-cta {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 16px 24px;
+  border-radius: 12px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 1.5px;
+  text-decoration: none;
+  color: var(--cyan);
+  background: rgba(96, 214, 255, 0.08);
+  border: 1px solid rgba(96, 214, 255, 0.3);
+  transition: all 0.3s;
+  cursor: pointer;
+}
+
+.era-cta:hover {
+  background: rgba(96, 214, 255, 0.15);
+  border-color: rgba(96, 214, 255, 0.6);
+  transform: translateY(-2px);
+}
+
+.era-card.free .era-cta {
+  color: var(--mint);
+  background: rgba(112, 240, 168, 0.08);
+  border-color: rgba(112, 240, 168, 0.3);
+}
+
+.era-card.free .era-cta:hover {
+  background: rgba(112, 240, 168, 0.15);
+  border-color: rgba(112, 240, 168, 0.6);
+}
+
+.era-cta.primary {
+  color: var(--void);
+  background: linear-gradient(135deg, var(--cyan), var(--violet));
+  border: none;
+  box-shadow: 0 10px 40px rgba(96, 214, 255, 0.35);
+}
+
+.era-cta.primary:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 60px rgba(96, 214, 255, 0.55);
+}
+
+.era-cta.big {
+  padding: 22px 44px;
+  font-size: 16px;
+  letter-spacing: 2px;
+}
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+footer {
+  position: relative;
+  z-index: 10;
+  padding: 60px 48px;
+  border-top: 1px solid rgba(96, 214, 255, 0.08);
+  text-align: center;
+  background: rgba(4, 5, 12, 0.6);
+  backdrop-filter: blur(20px);
+}
+
+footer p {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  color: var(--text-faint);
+}
+
+footer a {
+  color: var(--cyan);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+footer a:hover { color: var(--cyan-soft); }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 800px) {
+  .section { padding: 80px 24px; }
+  .hero { padding: 120px 24px 60px; }
+  .hero-stats { gap: 32px; }
+  .btn { padding: 18px 36px; font-size: 14px; }
+  .periodic-mini { gap: 2px; }
+  .pt-cell { font-size: 7px; }
+  #pricing { padding: 80px 24px; }
+  .era-grid { grid-template-columns: 1fr; gap: 16px; }
+  .era-card.popular { transform: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="scroll-progress" id="scroll-progress"></div>
+<div class="cursor"></div>
+<div class="cursor-ring"></div>
+
+<canvas id="stars-canvas"></canvas>
+<div class="gradient-wash"></div>
+
+<nav id="nav">
+  <a href="#" class="nav-brand">
+    <span class="nav-brand-dot"></span>
+    BLACK HOLE CREATOR
+  </a>
+  <ul class="nav-links">
+    <li><a href="#features">FEATURES</a></li>
+    <li><a href="#physics">PHYSICS</a></li>
+    <li><a href="#elements">ELEMENTS</a></li>
+    <li><a href="#pricing">PRICING</a></li>
+  </ul>
+</nav>
+
+<main>
+
+<!-- ============================================================
+     HERO
+     ============================================================ -->
+<section class="hero">
+  <canvas id="blackhole-canvas"></canvas>
+
+  <div class="hero-badge reveal">
+    <span class="hero-badge-dot"></span>
+    IN DEVELOPMENT · v0.32.0 SNAPSHOT
+  </div>
+
+  <h1 class="reveal glitch" data-text="BLACK HOLE CREATOR">
+    BLACK HOLE<br>CREATOR
+  </h1>
+
+  <p class="hero-subtitle reveal">
+    Place atoms. Watch them fall. Fuse them. Fission them.<br>
+    A <strong>real N-body physics sandbox</strong> built from scratch in Java.
+  </p>
+
+  <div class="hero-stats reveal">
+    <div class="stat">
+      <div class="stat-value" data-count="118">0</div>
+      <div class="stat-label">Elements</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" data-count="9">0</div>
+      <div class="stat-label">Physics Engines</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" data-count="36">0</div>
+      <div class="stat-label">Achievements</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" data-count="60">0</div>
+      <div class="stat-label">FPS Target</div>
+    </div>
+  </div>
+
+  <div class="hero-actions reveal">
+    <a href="#pricing" class="btn btn-ghost">
+      ▶ SEE PRICING
+    </a>
+  </div>
+
+  <p class="hero-note reveal">
+    Windows 10/11 · No Java installation required · Wishlist now
+  </p>
+</section>
+
+<!-- ============================================================
+     FEATURES
+     ============================================================ -->
+<section class="section" id="features">
+  <div class="section-label reveal">01 · FEATURES</div>
+  <h2 class="section-title reveal">
+    Everything is <span class="accent">simulated</span>.<br>
+    Nothing is scripted.
+  </h2>
+  <p class="section-desc reveal">
+    Atomic structure, N-body gravity, fusion, spallation, decay,
+    and antimatter annihilation. Every atom is a real object.
+  </p>
+
+  <div class="features-grid">
+
+    <div class="feature-card reveal">
+      <div class="feature-icon">⚛️</div>
+      <div class="feature-title">The Full Periodic Table</div>
+      <div class="feature-desc">
+        All 118 elements with real atomic masses, electron shell
+        configurations, and category colours. Hydrogen through
+        Oganesson, fully modelled from a single data table.
+      </div>
+      <span class="feature-tag">118 ELEMENTS</span>
+    </div>
+
+    <div class="feature-card reveal">
+      <div class="feature-icon">🌀</div>
+      <div class="feature-title">Barnes-Hut Gravity</div>
+      <div class="feature-desc">
+        Quadtree gravity with quadrupole moments, Plummer softening,
+        and adaptive substepping. Every atom attracts every other
+        atom, and the grid itself bends around heavy elements.
+      </div>
+      <span class="feature-tag">O(N log N)</span>
+    </div>
+
+    <div class="feature-card reveal">
+      <div class="feature-icon">💥</div>
+      <div class="feature-title">Stellar Fusion</div>
+      <div class="feature-desc">
+        Real reaction chains: H + H → He, He + He → Be, C + He → O.
+        Every reaction releases or absorbs energy based on distance
+        from iron, with an iron wall that blocks fusion past Z = 26.
+      </div>
+      <span class="feature-tag">IRON WALL</span>
+    </div>
+
+    <div class="feature-card reveal">
+      <div class="feature-icon">☢️</div>
+      <div class="feature-title">Radioactive Decay</div>
+      <div class="feature-desc">
+        Alpha and beta-minus decay with per-element half-life timers.
+        Alpha particles fly off as Helium-4 atoms, beta particles
+        as electrons. Neutron-rich fragments cascade down to stability.
+      </div>
+      <span class="feature-tag">ALPHA &amp; BETA</span>
+    </div>
+
+    <div class="feature-card reveal">
+      <div class="feature-icon">⚡</div>
+      <div class="feature-title">Spallation</div>
+      <div class="feature-desc">
+        Slam a fast light atom into a heavy one and both shatter.
+        Two fragments fly apart, three to five free neutrons burst
+        outward, and both parents collapse in a cyan shockwave.
+      </div>
+      <span class="feature-tag">FISSION</span>
+    </div>
+
+    <div class="feature-card reveal">
+      <div class="feature-icon">🌟</div>
+      <div class="feature-title">Antimatter</div>
+      <div class="feature-desc">
+        Shift-click to place antimatter. Matter and antimatter
+        touching annihilate on contact — a full E = mc² budget
+        split across photons, leptons, neutrons, and heat.
+      </div>
+      <span class="feature-tag">E = mc²</span>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============================================================
+     LIVE PHYSICS
+     ============================================================ -->
+<section class="section" id="physics">
+  <div class="section-label reveal">02 · LIVE PHYSICS</div>
+  <h2 class="section-title reveal">
+    Watch the world <span class="accent">simulate itself</span>.
+  </h2>
+
+  <div class="preview-wrap">
+    <div class="preview-canvas-wrap reveal">
+      <canvas id="atoms-canvas"></canvas>
+    </div>
+
+    <div class="reveal">
+      <ul class="preview-list">
+        <li>
+          <div class="preview-list-icon">g</div>
+          <div>
+            <div class="preview-list-title">Barnes-Hut Gravity</div>
+            <div class="preview-list-desc">
+              O(N log N) quadtree with quadrupole moments, Plummer
+              softening, and up to 4 adaptive substeps per tick.
+            </div>
+          </div>
+        </li>
+        <li>
+          <div class="preview-list-icon">🔥</div>
+          <div>
+            <div class="preview-list-title">Heat &amp; Temperature</div>
+            <div class="preview-list-desc">
+              Kinetic energy becomes temperature. Hot atoms ionize.
+              Neighbouring atoms exchange heat 10 % per tick.
+            </div>
+          </div>
+        </li>
+        <li>
+          <div class="preview-list-icon">⚛</div>
+          <div>
+            <div class="preview-list-title">Nine Physics Engines</div>
+            <div class="preview-list-desc">
+              Gravity, heat diffusion, neutron capture, spallation,
+              fusion, decay, supernova, antimatter, magnetic field.
+            </div>
+          </div>
+        </li>
+        <li>
+          <div class="preview-list-icon">🔗</div>
+          <div>
+            <div class="preview-list-title">Chain Tracking</div>
+            <div class="preview-list-desc">
+              Recent fusion and decay events are linked with fading
+              lines. Ten or more events within two seconds triggers
+              the Chain Gang achievement.
+            </div>
+          </div>
+        </li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     PERIODIC TABLE
+     ============================================================ -->
+<section class="section" id="elements">
+  <div class="section-label reveal">03 · THE TABLE</div>
+  <h2 class="section-title reveal">
+    All 118 elements. <span class="accent">Every isotope on the roadmap.</span>
+  </h2>
+  <p class="section-desc reveal">
+    Every element from Hydrogen to Oganesson, with real electron
+    shells and category colours. Isotope variants and the isotope
+    picker panel are planned for a future snapshot.
+  </p>
+
+  <div class="periodic-mini reveal" id="periodic-mini"></div>
+
+  <div class="pt-labels reveal">
+    <div class="pt-label"><div class="pt-label-dot pt-alkali"></div> ALKALI METAL</div>
+    <div class="pt-label"><div class="pt-label-dot pt-alkaline"></div> ALKALINE EARTH</div>
+    <div class="pt-label"><div class="pt-label-dot pt-transition"></div> TRANSITION</div>
+    <div class="pt-label"><div class="pt-label-dot pt-metalloid"></div> METALLOID</div>
+    <div class="pt-label"><div class="pt-label-dot pt-nonmetal"></div> NONMETAL</div>
+    <div class="pt-label"><div class="pt-label-dot pt-halogen"></div> HALOGEN</div>
+    <div class="pt-label"><div class="pt-label-dot pt-noble"></div> NOBLE GAS</div>
+    <div class="pt-label"><div class="pt-label-dot pt-lanthanide"></div> LANTHANIDE</div>
+    <div class="pt-label"><div class="pt-label-dot pt-actinide"></div> ACTINIDE</div>
+  </div>
+</section>
+
+<!-- ============================================================
+     PRICING / ERAS
+     ============================================================ -->
+<section class="section" id="pricing">
+  <div class="section-label reveal">04 · PRICING</div>
+  <h2 class="section-title reveal">
+    Four eras. <span class="accent">One universe.</span>
+  </h2>
+  <p class="section-desc reveal">
+    Start free. Unlock the rest when the game launches.
+    Reserve your tier now — no charge until release.
+  </p>
+
+  <div class="era-grid">
+
+    <!-- ===== ERA 01 — FREE ===== -->
+    <div class="era-card free reveal">
+      <div class="era-badge">FREE</div>
+      <div class="era-num">ERA 01</div>
+      <div class="era-title">The Foundation</div>
+      <div class="era-price"></div>
+
+      <ul class="era-features">
+        <li>All 118 elements from the periodic table</li>
+        <li>Real atomic data: protons, neutrons, mass</li>
+        <li>Animated electron shells and orbits</li>
+        <li>Barnes-Hut quadtree gravity</li>
+        <li>Fusion chains with the iron wall</li>
+        <li>Left-click to place atoms</li>
+        <li>WASD / arrow-key camera flight</li>
+        <li>Atom palette with search and filter</li>
+      </ul>
+
+      <button type="button" class="era-cta">comming soon</button>
+    </div>
+
+    <!-- ===== ERA 02 — FREE ===== -->
+    <div class="era-card free reveal">
+      <div class="era-badge">FREE</div>
+      <div class="era-num">ERA 02</div>
+      <div class="era-title">Decay &amp; Reactions</div>
+      <div class="era-price"></div>
+
+      <ul class="era-features">
+        <li>Everything in Era 01</li>
+        <li>Alpha and beta-minus decay</li>
+        <li>Per-element half-life timers</li>
+        <li>Neutron-rich beta cascades</li>
+        <li>Spallation events</li>
+        <li>Free neutron bursts</li>
+        <li>Chain reaction tracking and links</li>
+        <li>12 unlockable achievements</li>
+      </ul>
+
+      <button type="button" class="era-cta">comming soon</button>
+    </div>
+
+    <!-- ===== ERA 03 — $1.99 ===== -->
+    <div class="era-card popular reveal">
+      <div class="era-badge popular">MOST POPULAR</div>
+      <div class="era-num">ERA 03</div>
+      <div class="era-title">Nuclear Age</div>
+      <div class="era-price">$1.99</div>
+
+      <ul class="era-features">
+        <li>Everything in Era 01 + 02</li>
+        <li>Antimatter annihilation (E = mc²)</li>
+        <li>Positrons &amp; inverted antimatter atoms</li>
+        <li>Slow neutron capture (s-process)</li>
+        <li>1–3 capture thresholds per element group</li>
+        <li>Heavy element synthesis past iron</li>
+        <li>Magnetic field attraction (Fe / Co / Ni)</li>
+        <li>Aurora glow on fast-moving ions</li>
+        <li>Gamma radiation pulses on decay</li>
+        <li>Heat diffusion between nearby atoms</li>
+      </ul>
+
+      <button type="button" class="era-cta primary">comming soon</button>
+    </div>
+
+    <!-- ===== ERA 04 — $4.99 ===== -->
+    <div class="era-card reveal">
+      <div class="era-badge">BEST VALUE</div>
+      <div class="era-num">ERA 04</div>
+      <div class="era-title">Universe Creator</div>
+      <div class="era-price">$4.99</div>
+
+      <ul class="era-features">
+        <li>Everything in Era 01–03</li>
+        <li>Full supernova engine</li>
+        <li>Black hole mechanics</li>
+        <li>Gravitational lensing</li>
+        <li>Command scripting system</li>
+        <li>Recording and trailer tools</li>
+        <li>Custom physics constants</li>
+      </ul>
+
+      <button type="button" class="era-cta">comming soon</button>
+    </div>
+
+  </div>
+
+</section>
+
+</main>
+
+<footer>
+  <p>
+    MADE WITH JAVA BY <a href="https://github.com/abouelfetouh48">MAHMO</a>
+    · © 2026 BLACK HOLE CREATOR
+  </p>
+</footer>
+
+<script>
+(function() {
+  'use strict';
+
+  function hexToRgba(hex, a) {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${a})`;
+  }
+
+  const progressBar = document.getElementById('scroll-progress');
+  window.addEventListener('scroll', () => {
+    const h = document.documentElement;
+    const p = h.scrollTop / (h.scrollHeight - h.clientHeight);
+    progressBar.style.width = (p * 100) + '%';
+  });
+
+  const cursor = document.querySelector('.cursor');
+  const cursorRing = document.querySelector('.cursor-ring');
+  let mouseX = 0, mouseY = 0;
+  let ringX = 0, ringY = 0;
+
+  document.addEventListener('mousemove', (e) => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+    cursor.style.left = mouseX + 'px';
+    cursor.style.top = mouseY + 'px';
+  });
+
+  function animateCursor() {
+    ringX += (mouseX - ringX) * 0.15;
+    ringY += (mouseY - ringY) * 0.15;
+    cursorRing.style.left = ringX + 'px';
+    cursorRing.style.top = ringY + 'px';
+    requestAnimationFrame(animateCursor);
+  }
+  animateCursor();
+
+  const interactiveSelectors = 'a, button, .feature-card, .pt-cell, .era-card, .era-cta';
+  function attachHover(el) {
+    el.addEventListener('mouseenter', () => document.body.classList.add('hovering'));
+    el.addEventListener('mouseleave', () => document.body.classList.remove('hovering'));
+  }
+  document.querySelectorAll(interactiveSelectors).forEach(attachHover);
+
+  const starsCanvas = document.getElementById('stars-canvas');
+  const starsCtx = starsCanvas.getContext('2d');
+  let stars = [];
+
+  function resizeStars() {
+    starsCanvas.width = window.innerWidth;
+    starsCanvas.height = window.innerHeight;
+
+    stars = [];
+    const count = Math.floor(window.innerWidth * window.innerHeight / 6000);
+    for (let i = 0; i < count; i++) {
+      stars.push({
+        x: Math.random() * starsCanvas.width,
+        y: Math.random() * starsCanvas.height,
+        r: Math.random() * 1.2 + 0.2,
+        baseAlpha: Math.random() * 0.6 + 0.2,
+        phase: Math.random() * Math.PI * 2,
+        speed: Math.random() * 0.02 + 0.005
+      });
+    }
+  }
+
+  function drawStars(t) {
+    starsCtx.clearRect(0, 0, starsCanvas.width, starsCanvas.height);
+    for (const s of stars) {
+      const twinkle = 0.5 + 0.5 * Math.sin(t * 0.001 * s.speed + s.phase);
+      const a = s.baseAlpha * twinkle;
+      starsCtx.fillStyle = `rgba(200, 220, 255, ${a})`;
+      starsCtx.beginPath();
+      starsCtx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      starsCtx.fill();
+    }
+  }
+
+  const bhCanvas = document.getElementById('blackhole-canvas');
+  const bhCtx = bhCanvas.getContext('2d');
+
+  function resizeBH() {
+    const size = Math.min(window.innerWidth, window.innerHeight) * 0.9;
+    bhCanvas.width = size;
+    bhCanvas.height = size;
+  }
+  resizeBH();
+
+  const bhParticles = [];
+  for (let i = 0; i < 240; i++) {
+    bhParticles.push({
+      angle: Math.random() * Math.PI * 2,
+      radius: 80 + Math.random() * 400,
+      speed: (0.002 + Math.random() * 0.004) * (Math.random() < 0.7 ? 1 : -1),
+      size: 0.4 + Math.random() * 1.2,
+      alpha: 0.3 + Math.random() * 0.7,
+      color: Math.random() < 0.6 ? 'cyan' : (Math.random() < 0.5 ? 'gold' : 'violet')
+    });
+  }
+
+  function drawBlackHole(t) {
+    const w = bhCanvas.width;
+    const h = bhCanvas.height;
+    const cx = w / 2;
+    const cy = h / 2;
+    const time = t * 0.001;
+    const diskTilt = 0.32;
+
+    bhCtx.clearRect(0, 0, w, h);
+
+    bhCtx.save();
+    bhCtx.translate(cx, cy);
+
+    const rings = 22;
+    for (let i = rings; i >= 1; i--) {
+      const f = i / rings;
+      const rad = (w * 0.48) * (1.0 - f * 0.68);
+      const a = rad;
+      const b = rad * diskTilt;
+      const spin = time * 0.7 + f * 4.5;
+      const beam = 0.55 + 0.45 * Math.sin(spin);
+
+      let color;
+      if (f < 0.15) color = `rgba(180, 140, 255, ${0.35 * beam})`;
+      else if (f < 0.35) color = `rgba(160, 120, 240, ${0.45 * beam})`;
+      else if (f < 0.55) color = `rgba(255, 130, 200, ${0.55 * beam})`;
+      else if (f < 0.75) color = `rgba(255, 200, 100, ${0.60 * beam})`;
+      else if (f < 0.9) color = `rgba(255, 235, 180, ${0.65 * beam})`;
+      else color = `rgba(255, 255, 240, ${0.7 * beam})`;
+
+      bhCtx.strokeStyle = color;
+      bhCtx.lineWidth = Math.max(0.6, rad * 0.055);
+      bhCtx.beginPath();
+      bhCtx.ellipse(0, 0, a, b, 0, 0, Math.PI * 2);
+      bhCtx.stroke();
+    }
+    bhCtx.restore();
+
+    for (const p of bhParticles) {
+      p.angle += p.speed;
+      p.radius -= 0.08;
+      if (p.radius < 60) {
+        p.radius = 80 + Math.random() * 400;
+        p.angle = Math.random() * Math.PI * 2;
+      }
+
+      const x = cx + Math.cos(p.angle) * p.radius;
+      const y = cy + Math.sin(p.angle) * p.radius * diskTilt;
+      const behind = Math.sin(p.angle) < 0;
+      const sizeMul = behind ? 0.6 : 1.0;
+
+      let rgb;
+      if (p.color === 'cyan') rgb = '150, 220, 255';
+      else if (p.color === 'gold') rgb = '255, 220, 130';
+      else rgb = '190, 150, 255';
+
+      const a = p.alpha * (behind ? 0.4 : 1.0);
+      bhCtx.fillStyle = `rgba(${rgb}, ${a})`;
+      bhCtx.beginPath();
+      bhCtx.arc(x, y, p.size * sizeMul, 0, Math.PI * 2);
+      bhCtx.fill();
+    }
+
+    const photonR = w * 0.155;
+    const photonGlow = bhCtx.createRadialGradient(cx, cy, photonR * 0.9, cx, cy, photonR * 1.4);
+    photonGlow.addColorStop(0, 'rgba(180, 238, 255, 0)');
+    photonGlow.addColorStop(0.7, 'rgba(180, 238, 255, 0.4)');
+    photonGlow.addColorStop(1, 'rgba(180, 238, 255, 0)');
+    bhCtx.fillStyle = photonGlow;
+    bhCtx.beginPath();
+    bhCtx.arc(cx, cy, photonR * 1.4, 0, Math.PI * 2);
+    bhCtx.fill();
+
+    bhCtx.strokeStyle = 'rgba(200, 240, 255, 0.85)';
+    bhCtx.lineWidth = 2;
+    bhCtx.beginPath();
+    bhCtx.arc(cx, cy, photonR, 0, Math.PI * 2);
+    bhCtx.stroke();
+
+    bhCtx.strokeStyle = 'rgba(96, 214, 255, 0.5)';
+    bhCtx.lineWidth = 1.2;
+    bhCtx.beginPath();
+    bhCtx.arc(cx, cy, photonR * 1.15, 0, Math.PI * 2);
+    bhCtx.stroke();
+
+    const coreR = photonR * 0.85;
+    const coreGrad = bhCtx.createRadialGradient(cx, cy, 0, cx, cy, coreR * 1.3);
+    coreGrad.addColorStop(0, 'rgba(0, 0, 0, 1)');
+    coreGrad.addColorStop(0.85, 'rgba(0, 0, 0, 1)');
+    coreGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    bhCtx.fillStyle = coreGrad;
+    bhCtx.beginPath();
+    bhCtx.arc(cx, cy, coreR * 1.3, 0, Math.PI * 2);
+    bhCtx.fill();
+  }
+
+  const atomsCanvas = document.getElementById('atoms-canvas');
+  const atomsCtx = atomsCanvas.getContext('2d');
+
+  function resizeAtoms() {
+    const rect = atomsCanvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    atomsCanvas.width = rect.width * dpr;
+    atomsCanvas.height = rect.height * dpr;
+    atomsCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  const previewAtoms = [];
+  const ATOM_COLORS = {
+    H:  { fill: '#78dc78', shell: 1, r: 14, count: 1 },
+    He: { fill: '#b48cff', shell: 1, r: 16, count: 2 },
+    C:  { fill: '#78dc78', shell: 2, r: 22, count: 6 },
+    O:  { fill: '#78dc78', shell: 2, r: 24, count: 8 },
+    Fe: { fill: '#c0c0c8', shell: 4, r: 34, count: 26 },
+    Au: { fill: '#c0c0c8', shell: 6, r: 42, count: 79 },
+    U:  { fill: '#c864dc', shell: 7, r: 48, count: 92 }
+  };
+
+  function initAtoms() {
+    const symbols = ['H', 'He', 'C', 'O', 'Fe', 'Au', 'U', 'H', 'C', 'Fe'];
+    const w = atomsCanvas.width / (window.devicePixelRatio || 1);
+    const h = atomsCanvas.height / (window.devicePixelRatio || 1);
+
+    previewAtoms.length = 0;
+    for (let i = 0; i < 10; i++) {
+      const data = ATOM_COLORS[symbols[i]];
+      previewAtoms.push({
+        symbol: symbols[i],
+        data,
+        x: Math.random() * w,
+        y: Math.random() * h,
+        vx: (Math.random() - 0.5) * 0.4,
+        vy: (Math.random() - 0.5) * 0.4,
+        shellAngle: Math.random() * Math.PI * 2,
+        electronAngles: Array.from({ length: Math.min(data.count, 8) }, () => Math.random() * Math.PI * 2),
+        spin: (Math.random() - 0.5) * 0.015
+      });
+    }
+  }
+
+  function drawAtoms(t) {
+    const dpr = window.devicePixelRatio || 1;
+    const w = atomsCanvas.width / dpr;
+    const h = atomsCanvas.height / dpr;
+
+    atomsCtx.clearRect(0, 0, w, h);
+
+    atomsCtx.strokeStyle = 'rgba(96, 214, 255, 0.04)';
+    atomsCtx.lineWidth = 1;
+    for (let x = 0; x < w; x += 40) {
+      atomsCtx.beginPath();
+      atomsCtx.moveTo(x, 0);
+      atomsCtx.lineTo(x, h);
+      atomsCtx.stroke();
+    }
+    for (let y = 0; y < h; y += 40) {
+      atomsCtx.beginPath();
+      atomsCtx.moveTo(0, y);
+      atomsCtx.lineTo(w, y);
+      atomsCtx.stroke();
+    }
+
+    for (const a of previewAtoms) {
+      a.x += a.vx;
+      a.y += a.vy;
+      if (a.x < a.data.r || a.x > w - a.data.r) a.vx *= -1;
+      if (a.y < a.data.r || a.y > h - a.data.r) a.vy *= -1;
+      a.shellAngle += a.spin;
+      a.electronAngles = a.electronAngles.map(e => e + 0.03);
+
+      const glowR = a.data.r * 1.6;
+      const glowGrad = atomsCtx.createRadialGradient(a.x, a.y, 0, a.x, a.y, glowR);
+      glowGrad.addColorStop(0, hexToRgba(a.data.fill, 0.25));
+      glowGrad.addColorStop(1, hexToRgba(a.data.fill, 0));
+      atomsCtx.fillStyle = glowGrad;
+      atomsCtx.beginPath();
+      atomsCtx.arc(a.x, a.y, glowR, 0, Math.PI * 2);
+      atomsCtx.fill();
+
+      atomsCtx.strokeStyle = 'rgba(96, 214, 255, 0.2)';
+      atomsCtx.lineWidth = 1;
+      for (let s = 0; s < Math.min(a.data.shell, 3); s++) {
+        const shellR = a.data.r * 0.6 + s * a.data.r * 0.35;
+        atomsCtx.beginPath();
+        atomsCtx.ellipse(a.x, a.y, shellR, shellR * 0.55, a.shellAngle + s * 0.4, 0, Math.PI * 2);
+        atomsCtx.stroke();
+      }
+
+      atomsCtx.fillStyle = '#60d6ff';
+      a.electronAngles.forEach((angle, i) => {
+        const shellIdx = i % 3;
+        const shellR = a.data.r * 0.6 + shellIdx * a.data.r * 0.35;
+        const ex = a.x + Math.cos(angle) * shellR * Math.cos(a.shellAngle + shellIdx * 0.4);
+        const ey = a.y + Math.sin(angle) * shellR * 0.55;
+        atomsCtx.beginPath();
+        atomsCtx.arc(ex, ey, 2, 0, Math.PI * 2);
+        atomsCtx.fill();
+      });
+
+      atomsCtx.fillStyle = a.data.fill;
+      atomsCtx.beginPath();
+      atomsCtx.arc(a.x, a.y, a.data.r * 0.4, 0, Math.PI * 2);
+      atomsCtx.fill();
+
+      atomsCtx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+      atomsCtx.beginPath();
+      atomsCtx.arc(a.x - a.data.r * 0.15, a.y - a.data.r * 0.15, a.data.r * 0.15, 0, Math.PI * 2);
+      atomsCtx.fill();
+
+      atomsCtx.fillStyle = 'rgba(236, 240, 252, 0.85)';
+      atomsCtx.font = 'bold 11px "JetBrains Mono", monospace';
+      atomsCtx.textAlign = 'center';
+      atomsCtx.fillText(a.symbol, a.x, a.y + a.data.r + 14);
+    }
+  }
+
+  const ELEMENTS = [
+    [1,1,'H','nonmetal'], [1,18,'He','noble'],
+    [2,1,'Li','alkali'], [2,2,'Be','alkaline'], [2,13,'B','metalloid'],
+    [2,14,'C','nonmetal'], [2,15,'N','nonmetal'], [2,16,'O','nonmetal'],
+    [2,17,'F','halogen'], [2,18,'Ne','noble'],
+    [3,1,'Na','alkali'], [3,2,'Mg','alkaline'], [3,13,'Al','post'],
+    [3,14,'Si','metalloid'], [3,15,'P','nonmetal'], [3,16,'S','nonmetal'],
+    [3,17,'Cl','halogen'], [3,18,'Ar','noble'],
+    [4,1,'K','alkali'], [4,2,'Ca','alkaline'], [4,3,'Sc','transition'],
+    [4,4,'Ti','transition'], [4,5,'V','transition'], [4,6,'Cr','transition'],
+    [4,7,'Mn','transition'], [4,8,'Fe','transition'], [4,9,'Co','transition'],
+    [4,10,'Ni','transition'], [4,11,'Cu','transition'], [4,12,'Zn','transition'],
+    [4,13,'Ga','post'], [4,14,'Ge','metalloid'], [4,15,'As','metalloid'],
+    [4,16,'Se','nonmetal'], [4,17,'Br','halogen'], [4,18,'Kr','noble'],
+    [5,1,'Rb','alkali'], [5,2,'Sr','alkaline'], [5,3,'Y','transition'],
+    [5,4,'Zr','transition'], [5,5,'Nb','transition'], [5,6,'Mo','transition'],
+    [5,7,'Tc','transition'], [5,8,'Ru','transition'], [5,9,'Rh','transition'],
+    [5,10,'Pd','transition'], [5,11,'Ag','transition'], [5,12,'Cd','transition'],
+    [5,13,'In','post'], [5,14,'Sn','post'], [5,15,'Sb','metalloid'],
+    [5,16,'Te','metalloid'], [5,17,'I','halogen'], [5,18,'Xe','noble'],
+    [6,1,'Cs','alkali'], [6,2,'Ba','alkaline'], [6,3,'La','lanthanide'],
+    [6,4,'Hf','transition'], [6,5,'Ta','transition'], [6,6,'W','transition'],
+    [6,7,'Re','transition'], [6,8,'Os','transition'], [6,9,'Ir','transition'],
+    [6,10,'Pt','transition'], [6,11,'Au','transition'], [6,12,'Hg','transition'],
+    [6,13,'Tl','post'], [6,14,'Pb','post'], [6,15,'Bi','post'],
+    [6,16,'Po','post'], [6,17,'At','halogen'], [6,18,'Rn','noble'],
+    [7,1,'Fr','alkali'], [7,2,'Ra','alkaline'], [7,3,'Ac','actinide'],
+    [7,4,'Rf','transition'], [7,5,'Db','transition'], [7,6,'Sg','transition'],
+    [7,7,'Bh','transition'], [7,8,'Hs','transition'], [7,9,'Mt','transition'],
+    [7,10,'Ds','transition'], [7,11,'Rg','transition'], [7,12,'Cn','transition'],
+    [7,13,'Nh','post'], [7,14,'Fl','post'], [7,15,'Mc','post'],
+    [7,16,'Lv','post'], [7,17,'Ts','halogen'], [7,18,'Og','noble']
+  ];
+
+  const ptMini = document.getElementById('periodic-mini');
+  const grid = Array.from({ length: 9 }, () => Array(18).fill(null));
+
+  for (const [p, g, sym, cat] of ELEMENTS) {
+    grid[p - 1][g - 1] = { sym, cat };
+  }
+
+  const lanthanides = ['La','Ce','Pr','Nd','Pm','Sm','Eu','Gd','Tb','Dy','Ho','Er','Tm','Yb','Lu'];
+  const actinides = ['Ac','Th','Pa','U','Np','Pu','Am','Cm','Bk','Cf','Es','Fm','Md','No','Lr'];
+
+  for (let i = 0; i < lanthanides.length; i++) {
+    grid[7][i + 2] = { sym: lanthanides[i], cat: 'lanthanide' };
+  }
+  for (let i = 0; i < actinides.length; i++) {
+    grid[8][i + 2] = { sym: actinides[i], cat: 'actinide' };
+  }
+
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 18; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'pt-cell';
+      const data = grid[r][c];
+      if (data) {
+        cell.classList.add('pt-' + data.cat);
+        cell.textContent = data.sym;
+        cell.title = data.sym;
+      } else {
+        cell.classList.add('empty');
+      }
+      ptMini.appendChild(cell);
+    }
+  }
+
+  const revealObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.12, rootMargin: '0px 0px -80px 0px' });
+
+  document.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el));
+
+  const counters = document.querySelectorAll('[data-count]');
+  const counterObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const el = entry.target;
+      const target = parseInt(el.dataset.count, 10);
+      const duration = 1600;
+      const start = performance.now();
+
+      function step(now) {
+        const p = Math.min(1, (now - start) / duration);
+        const eased = 1 - Math.pow(1 - p, 3);
+        el.textContent = Math.floor(target * eased).toLocaleString();
+        if (p < 1) requestAnimationFrame(step);
+        else el.textContent = target.toLocaleString();
+      }
+      requestAnimationFrame(step);
+      counterObserver.unobserve(el);
+    });
+  }, { threshold: 0.5 });
+
+  counters.forEach(el => counterObserver.observe(el));
+
+  const nav = document.getElementById('nav');
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 60) nav.classList.add('scrolled');
+    else nav.classList.remove('scrolled');
+  });
+
+  document.querySelectorAll('.feature-card').forEach(card => {
+    card.addEventListener('mousemove', (e) => {
+      const rect = card.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const px = x / rect.width;
+      const py = y / rect.height;
+      card.style.setProperty('--mx', (px * 100) + '%');
+      card.style.setProperty('--my', (py * 100) + '%');
+
+      const rx = (py - 0.5) * -6;
+      const ry = (px - 0.5) * 6;
+      card.style.transform = `perspective(900px) rotateX(${rx}deg) rotateY(${ry}deg) translateY(-4px)`;
+    });
+
+    card.addEventListener('mouseleave', () => {
+      card.style.transform = '';
+    });
+  });
+
+  document.querySelectorAll('.btn').forEach(btn => {
+    btn.addEventListener('mousemove', (e) => {
+      const rect = btn.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const dx = e.clientX - cx;
+      const dy = e.clientY - cy;
+      btn.style.transform = `translate(${dx * 0.15}px, ${dy * 0.15}px)`;
+    });
+    btn.addEventListener('mouseleave', () => {
+      btn.style.transform = '';
+    });
+  });
+
+  function loop(t) {
+    drawStars(t);
+    drawBlackHole(t);
+    drawAtoms(t);
+    requestAnimationFrame(loop);
+  }
+
+  window.addEventListener('resize', () => {
+    resizeStars();
+    resizeBH();
+    resizeAtoms();
+    initAtoms();
+  });
+
+  resizeStars();
+  resizeBH();
+  resizeAtoms();
+  initAtoms();
+  requestAnimationFrame(loop);
+
+})();
+</script>
+
+</body>
+</html>
