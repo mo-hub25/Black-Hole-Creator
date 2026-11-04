@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://black-hole-creator-we7x.vercel.app/sitemap.xml
